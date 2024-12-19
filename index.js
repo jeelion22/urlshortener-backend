@@ -1,6 +1,9 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const app = require("./app");
+const { SERVER_PORT } = require("./utils/config");
+
+const PORT = SERVER_PORT || 3001;
 
 async function connectServer() {
   try {
@@ -10,8 +13,8 @@ async function connectServer() {
 
     console.log("Connected to MongoDB");
 
-    app.listen(3000, () => {
-      console.log("Server is running on PORT 3000");
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
     });
 
     process.on("SIGINT", async () => {

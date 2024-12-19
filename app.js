@@ -3,6 +3,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
 const urlShortnerRoutes = require("./routes/urlShortnerRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
@@ -32,5 +33,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/url", urlShortnerRoutes);
+
+app.use("/api/user", userRoutes);
 
 module.exports = app;
