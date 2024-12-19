@@ -35,6 +35,10 @@ const userController = {
         return res.status(400).json({ message: "Invalid credentials" });
       }
 
+      if (user.isPasswordResetRequested) {
+        return res.status(400).json({ message: "Please reset password" });
+      }
+
       const isPasswordCorrect = await bcrypt.compare(
         password,
         user.passwordHash
@@ -113,6 +117,117 @@ const userController = {
       res.status(200).json({ message: "Email verification successful" });
     } catch (error) {
       res.status(500).json({ message: error.message });
+    }
+  },
+
+  forgotPassword: async (req, res) => {
+    try {
+      const email = req.body.email;
+
+      const user = await User.findOne({ email });
+
+      if (!user) {
+        return res.status(400).json({ message: "invalid credentials" });
+      }
+
+      await user.sendPasswordResetLink();
+
+      res.status(200).json({
+        message:
+          "Password reset link sent successfully to registered email address",
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  },
+
+  resetPassword: async (req, res) => {
+    try {
+      const { userId, passwordResetToken } = req.params;
+      const { password } = req.body;
+
+      if (!password) {
+        res.status(400).json({ message: "Password is required" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const hashedPasswordToken = crypto
+        .createHash("sha256")
+        .update(passwordResetToken)
+        .digest("hex");
+
+      const user = await User.findOneAndUpdate(
+        {
+          _id: userId,
+          passwordResetVerificationToken: hashedPasswordToken,
+          passwordResetVerificationTokenExpiresAt: { $gt: Date.now() },
+        },
+        {
+          $set: {
+            isPasswordResetRequested: false,
+            passwordHash: passwordHash,
+          },
+          $unset: {
+            passwordResetVerificationTokenExpiresAt: "",
+            passwordResetVerificationToken: "",
+          },
+        },
+        { new: true }
+      );
+
+      if (!user) {
+        return res.status(400).json({ message: "Invalid link" });
+      }
+
+      res.status(200).json({ message: "Password reset successful" });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+
+  me: async (req, res) => {
+    try {
+      const userId = req.userId;
+
+      let user = await User.findById(userId).select(
+        "-__v -isEmailVerified -passwordHash -emailVerificationToken -emailVerificationTokenExpiresAt  -passwordResetVerificationToken -passwordResetVerificationTokenExpiresAt"
+      );
+
+      if (user.isPasswordResetRequested) {
+        res.clearCookie("token", {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+        });
+
+        return res.status(400).json({ message: "Please reset password" });
+      }
+
+      formatUser = (user) => {
+        const { _id, firstname, lastname, email, urlsShortened } = user;
+
+        return { _id, firstname, lastname, email, urlsShortened };
+      };
+
+      console.log(user);
+
+      res.status(200).json(formatUser(user));
+    } catch (error) {
+      res.json({ message: error.message });
+    }
+  },
+  logout: async (req, res) => {
+    try {
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+      });
+      res.status(204).send();
+    } catch (error) {
+      res.json({ message: error.message });
     }
   },
 };

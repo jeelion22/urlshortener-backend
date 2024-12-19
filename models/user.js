@@ -3,6 +3,7 @@ const validator = require("validator");
 const URLShortner = require("./url");
 const crypto = require("crypto");
 const sendEmail = require("../utils/email");
+const generateToken = require("../utils/token");
 
 const userSchema = new mongoose.Schema({
   firstname: {
@@ -55,16 +56,25 @@ const userSchema = new mongoose.Schema({
 
   emailVerificationToken: { type: String },
   emailVerificationTokenExpiresAt: { type: Date },
+
+  isPasswordResetRequested: {
+    type: Boolean,
+    default: false,
+  },
+
+  passwordResetVerificationToken: {
+    type: String,
+  },
+  passwordResetVerificationTokenExpiresAt: {
+    type: Date,
+  },
 });
 
 // creates email verification link
 userSchema.methods.sendEmailVerificationLink = async function () {
   try {
-    const emailToken = crypto.randomBytes(32).toString("hex");
-    this.emailVerificationToken = crypto
-      .createHash("sha256")
-      .update(emailToken)
-      .digest("hex");
+    const { randomKey, hashedRandomKey } = generateToken();
+    this.emailVerificationToken = hashedRandomKey;
     this.emailVerificationTokenExpiresAt = new Date(
       Date.now() + 15 * 60 * 1000
     );
@@ -79,7 +89,44 @@ userSchema.methods.sendEmailVerificationLink = async function () {
       }, </p>
     <p>Please verify your email address by the <a href=http://localhost:3000/api/user/account/verify/${
       this._id
-    }/${emailToken} target="_blank">link</a></p>
+    }/${randomKey} target="_blank">link</a></p>
+    <p>If it was not initiated by you, then no action is required. Please ignore this mail.</p>
+
+    <p>
+    With regards <br> URLShortener Team
+    </p>
+    </div>`,
+    };
+
+    await sendEmail(option);
+  } catch (error) {
+    console.log(error.message);
+  }
+};
+
+// password reset request
+userSchema.methods.sendPasswordResetLink = async function () {
+  const { randomKey, hashedRandomKey } = generateToken();
+
+  try {
+    this.passwordResetVerificationToken = hashedRandomKey;
+    this.passwordResetVerificationTokenExpiresAt = new Date(
+      Date.now() + 15 * 3600 * 1000
+    );
+    this.isPasswordResetRequested = true;
+
+    await this.save();
+
+    const option = {
+      email: this.email,
+      subject: "Password Reset Link for URLShortener Account",
+      message: `<div style=""><p>Hi ${this.firstname} ${
+        this.lastname ? this.lastname : ""
+      }, </p>
+    <p>Please click the <a href=http://localhost:3000/api/user/account/password/reset/${
+      this._id
+    }/${randomKey} target="_blank">link</a> for reset password for your URLShortener account. <em>It is valid only for 15 minutes</em>
+    </p>
     <p>If it was not initiated by you, then no action is required. Please ignore this mail.</p>
 
     <p>
