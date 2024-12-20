@@ -211,8 +211,6 @@ const userController = {
         return { _id, firstname, lastname, email, urlsShortened };
       };
 
-      console.log(user);
-
       res.status(200).json(formatUser(user));
     } catch (error) {
       res.json({ message: error.message });
