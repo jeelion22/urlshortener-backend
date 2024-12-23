@@ -27,6 +27,22 @@ const auth = {
       }
     }
   },
+
+  hasToken: async (req, res, next) => {
+    const token = req.cookies.token;
+
+    if (token) {
+      try {
+        const decodedToken = jwt.verify(token, JWT_SECRET);
+
+        req.userId = decodedToken.id;
+      } catch (error) {
+        return res.status(401).json({ message: error.message });
+      }
+    }
+
+    next();
+  },
 };
 
 module.exports = auth;
